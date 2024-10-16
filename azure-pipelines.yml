@@ -1,0 +1,68 @@
+trigger:
+- main
+
+pool:
+  name: MTS Linux
+  demands:
+    - agent.name -equals victor
+
+# strategy:
+#   matrix:
+#     Python310:
+#       python.version: '3.10'
+#     Python311:
+#       python.version: '3.11'
+#     Python312:
+#       python.version: '3.12'
+
+steps:
+  # - task: UsePythonVersion@0
+  #   inputs:
+  #     versionSpec: '$(python.version)'
+  #   displayName: 'Use Python $(python.version)'
+
+  - script: |
+      python3 -m venv .venv
+      source .venv/bin/activate
+      python -m pip install --upgrade pip
+      pip install -r requirements.txt
+    displayName: 'Install dependencies'
+
+  - task: ArchiveFiles@2
+    displayName: 'Archive files'
+    inputs:
+      rootFolderOrFile: $(System.DefaultWorkingDirectory)
+      includeRootFolder: false
+      archiveType: zip
+      archiveFile: $(Build.ArtifactStagingDirectory)/$(Build.BuildId)-$(python.version).zip
+      replaceExistingArchive: true
+
+  - task: PublishBuildArtifacts@1
+    inputs:
+      PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+      ArtifactName: 'drop'
+      publishLocation: 'Container'
+
+  - script: |
+      python3 -m venv .venv
+      source .venv/bin/activate
+      pip install pytest pytest-azurepipelines
+      pytest -v
+    displayName: 'pytest'
+
+  # SSH v0
+  # Run shell commands or a script on a remote machine using SSH.
+  - task: SSH@0
+    inputs:
+      sshEndpoint: 'my PTX' # string. Required. SSH service connection. 
+      runOptions: 'script' # 'commands' | 'script' | 'inline'. Required. Run. Default: commands.
+      #commands: # string. Required when runOptions = commands. Commands. 
+      scriptPath: 'test.sh' # string. Required when runOptions = script. Shell script path. 
+      #inline: # string. Required when runOptions = inline. Inline Script. 
+      #interpreterCommand: '/bin/bash' # string. Optional. Use when runOptions = inline. Interpreter command. Default: /bin/bash.
+      #args: # string. Optional. Use when runOptions = script. Arguments. 
+    # Advanced
+      #failOnStdErr: true # boolean. Fail on STDERR. Default: true.
+      #interactiveSession: false # boolean. Enable interactive session. Default: false.
+      readyTimeout: '20000' # string. Required. SSH handshake timeout. Default: 20000.
+      #interactiveKeyboardAuthentication: false # boolean. Use interactive-keyboard authentication. Default: false.
